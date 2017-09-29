@@ -18,6 +18,12 @@ class Job
     @src = url
   end
 
+  def read_json
+    json = JSON.parse(open(File.expand_path("../json/#{get_year}#{get_month}#{get_date}.json", __FILE__), "r").read, symbolize_names: true)
+    @job = json
+    p json
+  end
+
   def write_json
     json = File.open(File.expand_path("../json/#{get_year}#{get_month}#{get_date}.json", __FILE__), "w")
     json.puts(@job.to_json)
@@ -63,15 +69,19 @@ class MonthlyJobs
   def initialize(date)
     @y = date.strftime("%Y")
     @m = date.strftime("%m")
-    @first_day = date.beginning_of_month
+    @first_day = date
     @end_day = date.at_end_of_month
     @src = "http://idolmaster.jp/schedule/?ey=#{@y}&em=#{@m}"
     @joblist = get_daily_jobs
   end
 
-  def write_json
+  def write_json(*exclude_days)
     @joblist.each do |job|
-      job.write_json
+      if !exclude_days.nil? && exclude_days.include?("#{job.get_year}#{job.get_month}#{job.get_date}")
+        job.read_json
+      else
+        job.write_json
+      end
     end
   end
 
@@ -94,8 +104,16 @@ class MonthlyJobs
     tablelist = doc.css("table.List")
     tr = tablelist.css("tr")
     i = 3
-    day = @first_day
+    day = @first_day.beginning_of_month
     week = %w[日 月 火 水 木 金 土]
+
+    while day < @first_day
+      jobcount = tr[i].css("td")[0].attribute("rowspan").value.to_i
+      jobcount.times do
+        i += 1
+      end
+      day = day.tomorrow
+    end
 
     while day <= @end_day
       jobcount = tr[i].css("td")[0].attribute("rowspan").value.to_i
@@ -138,7 +156,7 @@ class MonthlyJobs
 end
 
 this_month = MonthlyJobs.new(Date.today)
-this_month.write_json
+this_month.write_json()
 this_month.mastodon_post_today
-next_month = MonthlyJobs.new(Date.today.next_month)
+next_month = MonthlyJobs.new(Date.today.next_month.beginning_of_month)
 next_month.write_json
