@@ -31,17 +31,25 @@ class Job
 
   def mastodon_post
     contents = @job[:content]
-    post = "#{@job[:title]}\n"
+    spoiler = nil
+    post = "#{@job[:title]}"
     if contents.blank?
-      post << "現在、お仕事情報はありません。\nhttp://idolmaster.jp/schedule/\n"
+      post << "\n現在、お仕事情報はありません。\nhttp://idolmaster.jp/schedule/\n"
     else
+      post << "【#{@job[:job_count]}件】\n"
+      if @job[:job_count] >= 3
+        spoiler = post
+        post = ""
+      end
       contents.each do |content|
         post << content[:post]
       end
     end
     post << "#imas_oshigoto"
     client = Mastodon::REST::Client.new(base_url: ENV["MASTODON_URL"], bearer_token: ENV["MASTODON_ACCESS_TOKEN"])
-    client.create_status(post)
+    puts("s: #{spoiler}")
+    puts("p: #{post}")
+    client.create_status(post, spoiler_text: spoiler)
   end
 
   def get_dateobj
